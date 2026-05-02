@@ -1,0 +1,18 @@
+Create a CLI tool using Rust named dkls23ctl for TSS ECDSA signing and key generation. Use this library https://github.com/silence-laboratories/dkls23 as a core, and https://github.com/n0-computer/iroh for network communication. Research both repos docs and sources carefully.
+
+The tool should allow (via subcommands):
+  keygen -t, -n (t-of-n), --peer-id=<peer_id_str> (identifier of this peer, should be unique), --key-id=<new_key_id_str> (identifier of generated key, should be the same for all peers) # The result is a generated key share in ./.secrets/<key_id>/<peer_id>.json   Generation start when there are N instances of this command running in parallel with the same --key-id but different --peer-id. Generation parameters should be stored along the key. After generation pubkey should be shown in stdout. -n by default is equal to -t.
+  pubkey --key-id=<key_id> # Should show pubkey for provided key_id. Does not accept --peer-id as pubkey should be the same for all peers.
+  sign --key-id=<key_id> --peer-id=<peer_id> --msg=<string_message_to_sign>  # As the name suggest this subcommand should sign provided message (after hashing ofcourse). Should succeed after user runs at least T instances of this command with different peers and the same --msg and --key-id.
+  reshare --peer-id=<peer_id_str> --key-id=<existing_key_id> -t T -n N  # Reshare an existing key with another t-on-n parameters. Pubkey should not change. Should start resharing when there are max(N, old_T) instances of this command running in parallel.
+  verify --key-id=<key_id> --msg=<msg_str> --signature=<sig_hex> # verify signature for a provided message and key
+
+This tool is expected to run on a localhost or LAN, fully p2p (no server or dedicated leader). Use this library for network stack https://github.com/n0-computer/iroh and don't require to run an additional server - each peer (a running instance) should have the same rank and be able to communicate with any other peer. Shared --key-id is how peers should find each other (plus some hardcoded tool id ofcourse).
+
+dkg and signing phases can wait for a quorum peer count to appear and then start generation. Current online peer count can be shown in logs of each tool instance. If one of peers goes offline during operation - fail the whole operation on timeout (just use the default one from dkls23, no need for special handling).
+
+For peer discovery use mDNS from iroh ecosystem.
+keygen -t1 ... (i.e. singleton) configuration should be fully supported - it should generate a plain ECDSA private key. Resharing to/from it to a TSS should be implemented too (via import/export feature of dkls23 lib).
+Use debug build configuration to speed up development iteration.
+Write tests to verify correctness.
+QA testing using built CLI tool is essential though - all scenarios should work. Consider writing helper shell scripts to simplify this step.

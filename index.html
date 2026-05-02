@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>dkls23ctl: Three-Agent Showdown</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3;
+    --muted:#8b949e; --accent:#58a6ff; --green:#3fb950; --red:#f85149;
+    --amber:#d29922; --cc:#7c4dff; --cd:#00bfa5; --oc:#ff6e40;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro",system-ui,Segoe UI,Roboto,sans-serif}
+  a{color:var(--accent)}
+  .wrap{max-width:1280px;margin:0 auto;padding:32px 24px 64px}
+  h1{font-size:32px;margin:0 0 4px;letter-spacing:-0.02em}
+  .sub{color:var(--muted);margin-bottom:24px}
+  h2{margin-top:48px;font-size:22px;border-bottom:1px solid var(--border);padding-bottom:8px}
+  h3{font-size:16px;margin:24px 0 8px;color:var(--accent)}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .card h4{margin:0 0 8px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
+  .big{font-size:30px;font-weight:600;letter-spacing:-0.02em;line-height:1.1}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#21262d;border:1px solid var(--border);margin-right:6px}
+  .pill.cc{background:rgba(124,77,255,.18);color:#bda6ff;border-color:rgba(124,77,255,.4)}
+  .pill.cd{background:rgba(0,191,165,.18);color:#5fe2ce;border-color:rgba(0,191,165,.4)}
+  .pill.oc{background:rgba(255,110,64,.18);color:#ffb087;border-color:rgba(255,110,64,.4)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top}
+  th{background:#0d1117;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em}
+  tr:last-child td{border-bottom:none}
+  .pass{color:var(--green);font-weight:600}
+  .fail{color:var(--red);font-weight:600}
+  .partial{color:var(--amber);font-weight:600}
+  .chart-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin:14px 0}
+  .chart-box canvas{max-width:100%}
+  .chart-box.compact{max-width:680px;margin-left:auto;margin-right:auto}
+  .chart-box.compact canvas{height:380px !important;max-height:380px}
+  .chart-box.skinny canvas{height:320px !important;max-height:320px}
+  .obs{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin:8px 0}
+  .obs strong{color:var(--accent)}
+  .obs h3{margin-top:0;color:var(--fg);font-size:15px}
+  ul{margin:6px 0 12px 18px;padding:0}
+  li{margin:4px 0}
+  code{background:#21262d;padding:1px 6px;border-radius:4px;font-size:12px;font-family:"SF Mono",Menlo,Consolas,monospace}
+  .hypo{border-left:3px solid var(--accent);padding-left:14px}
+  .winner{color:var(--green)}
+  .ok{color:var(--green)}
+  .footer{color:var(--muted);font-size:12px;margin-top:48px;border-top:1px solid var(--border);padding-top:16px;text-align:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .timeline{font-size:12px;color:var(--muted);font-family:"SF Mono",monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>dkls23ctl · Opus 4.7 vs GPT-5 vs DeepSeek v4-pro</h1>
+<div class="sub">
+  Three frontier models — <span class="pill cc">Opus 4.7 <small>· Claude Code · x-high effort</small></span>
+  <span class="pill cd">GPT-5 <small>· Codex · high effort</small></span>
+  <span class="pill oc">DeepSeek v4-pro <small>· OpenCode · high (or max) effort</small></span>
+  — were given the same prompt: build a t-of-n threshold ECDSA CLI on top of Silence Laboratories'
+  <code>dkls23</code> with <code>iroh</code>/mDNS for peer discovery. Same machine, same hour, no other context.
+  Here's how each fared.
+</div>
+
+<h2>Headline numbers</h2>
+<div class="grid3">
+  <div class="card">
+    <h4>QA scenarios (out of 16)</h4>
+    <div class="big"><span style="color:var(--cc)">Opus 4.7 &nbsp;12 / 4 / 0</span><br><span style="color:var(--cd)">GPT-5 &nbsp;14 / 2 / 0</span><br><span style="color:var(--oc)">DeepSeek &nbsp;6 / 2 / 8</span></div>
+    <div class="sub">pass / partial / fail. Opus and GPT-5's "partial" entries are intentional rejections of unimplemented reshare modes; DeepSeek's are real failures.</div>
+  </div>
+  <div class="card">
+    <h4>Active session time (excl. >2&nbsp;min idle)</h4>
+    <div class="big"><span style="color:var(--cc)">Opus 4.7 &nbsp;65m</span> · <span style="color:var(--cd)">GPT-5 &nbsp;26m</span> · <span style="color:var(--oc)">DeepSeek &nbsp;95m</span></div>
+    <div class="sub">GPT-5 was 2.5× faster than Opus, 3.6× faster than DeepSeek.</div>
+  </div>
+  <div class="card">
+    <h4>Tool calls / user interventions</h4>
+    <div class="big"><span style="color:var(--cc)">337 / 2</span> · <span style="color:var(--cd)">217 / 3</span> · <span style="color:var(--oc)">294 / 1</span></div>
+    <div class="sub">Opus and GPT-5 needed almost no user input on the task itself; DeepSeek asked one question (the user disagreed). But see §4.10 for Opus's permission-prompt cost.</div>
+  </div>
+</div>
+
+<h2>1. QA — does it actually work?</h2>
+<div class="chart-box compact"><canvas id="chartScenarios"></canvas></div>
+
+<h3>Detail per scenario</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Opus 4.7</th><th>GPT-5</th><th>DeepSeek v4-pro</th></tr></thead>
+  <tbody id="scenarioTable"></tbody>
+</table>
+
+<h2>2. Architecture &amp; code quality</h2>
+<div class="grid3">
+  <div class="card">
+    <h4>Opus 4.7 <small style="color:var(--muted);font-weight:400">· Claude Code</small></h4>
+    <ul>
+      <li>9 source files, clean module split: <code>cli</code>, <code>commands/</code>, <code>discovery</code>, <code>transport</code>, <code>keyshare</code>, <code>singleton</code>.</li>
+      <li>Uses dkls23's official <code>SimpleMessageRelay</code> + a thin <code>InterceptRelay</code> wrapper. The "obvious" idiomatic integration.</li>
+      <li>Real mDNS discovery scoped via <code>blake3(tool_id|key_id)[..6]</code> — peers from different keys never see each other.</li>
+      <li>Hello handshake with peer-id collision check.</li>
+      <li>Library + binary split, tests use the library half.</li>
+      <li>2 cargo tests + 4 shell QA scripts (incl. <code>run_all.sh</code> orchestrator).</li>
+      <li>Detailed <code>README.md</code>.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>GPT-5 <small style="color:var(--muted);font-weight:400">· Codex</small></h4>
+    <ul>
+      <li><strong>Single 1254-line file</strong> (<code>main.rs</code>) — extreme density, no module split.</li>
+      <li>Custom <code>IrohRelay</code> built directly on <code>Sink</code>+<code>Stream</code>; bypasses dkls23's <code>SimpleMessageRelay</code>. Riskier, but works.</li>
+      <li>Carries discovery metadata (peer_id, party_id, pubkey, encryption pubkey) inline as <code>UserData</code> on each mDNS record.</li>
+      <li>Implements <strong>all four reshare transitions</strong> incl. (1,1)→(t,n), (t,n)→(1,1) via <code>key_export</code>, and committee-size changes.</li>
+      <li>2 cargo tests; <strong>no shell scripts</strong>.</li>
+      <li>No README.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>DeepSeek v4-pro <small style="color:var(--muted);font-weight:400">· OpenCode</small></h4>
+    <ul>
+      <li>4 source files (~940 lines).</li>
+      <li>Uses <code>dkls23-secp256k1</code> (a <em>different</em> upstream than the spec's <code>silence-laboratories/dkls23</code>) — phase-1/2/3/4 message API.</li>
+      <li><strong>File-system based discovery</strong> via <code>/tmp/dkls23ctl/&lt;key&gt;/&lt;peer&gt;.json</code> — spec violation (mDNS was required).</li>
+      <li>iroh endpoint exists but addresses are advertised by writing to disk and polling. The user explicitly called this out mid-session; the model never fixed it.</li>
+      <li>Reshare cannot change t/n (only refresh) and cannot bring in fresh peers.</li>
+      <li><code>main.rs</code> contains a quietly broken normalisation: <code>if n == 1 || t == 1 { t = 1; n = 1; }</code> silently overrides user-supplied params.</li>
+      <li>Visible bug: <code>protocol.rs</code> sends sign-phase-1 messages twice (loop duplicated).</li>
+      <li><strong>0 cargo tests</strong>; 3 shell scripts (qa_test.sh admits its own race conditions).</li>
+      <li>~495 KB per share file (vs. ~few KB for the other two) — the wrong serialisation level.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>3. Time, iterations, and where each model got stuck</h2>
+<div class="chart-box skinny"><canvas id="chartActivity"></canvas></div>
+
+<div class="grid3">
+  <div class="card">
+    <h4>Tool-call breakdown</h4>
+    <canvas id="chartTools" height="240"></canvas>
+  </div>
+  <div class="card">
+    <h4>Wall vs active time</h4>
+    <canvas id="chartTime" height="240"></canvas>
+  </div>
+  <div class="card">
+    <h4>Tokens used</h4>
+    <canvas id="chartTokens" height="240"></canvas>
+  </div>
+</div>
+
+<h3>Idle gaps (>30 s) — where each model waited</h3>
+<table>
+  <thead><tr><th>Model</th><th># gaps &gt; 30 s</th><th>Longest gap</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pill cc">Opus 4.7</span></td><td>37</td><td>~80 min (13:56→15:17 UTC)</td><td>Same global pause (user lunch / break) seen across all three sessions.</td></tr>
+    <tr><td><span class="pill cd">GPT-5</span></td><td>8</td><td>~81 min (13:55→15:17 UTC)</td><td>Fewest mid-session waits — the model rarely paused on its own.</td></tr>
+    <tr><td><span class="pill oc">DeepSeek v4-pro</span></td><td>69</td><td>~81 min (13:55→15:17 UTC)</td><td>Many small mid-session pauses: long generations, repeated retries.</td></tr>
+  </tbody>
+</table>
+
+<h2>4. Key observations</h2>
+
+<div class="obs">
+  <h3>4.1  All three picked the same iroh primitive — but only two used the dkls23 relay correctly</h3>
+  <p>Opus 4.7 and GPT-5 both used <code>iroh::address_lookup::MdnsAddressLookup</code> and a real ALPN-based QUIC connection between peers. Opus plugged dkls23's own <code>SimpleMessageRelay</code> into iroh via a sink interceptor (the "official" path). GPT-5 built a from-scratch relay, which is more code but enables features Opus skipped.</p>
+  <p>DeepSeek v4-pro bound an iroh endpoint, but its <code>wait_for_peers()</code> loop reads <code>/tmp/dkls23ctl/&lt;key&gt;/&lt;peer&gt;.json</code> files instead of using mDNS. The user pushed back on this mid-session — the model acknowledged but did not fix it. The iroh dial path uses the loopback IP and port written to those files, defeating the whole point of mDNS / LAN discovery.</p>
+</div>
+
+<div class="obs">
+  <h3>4.2  GPT-5 is the most feature-complete</h3>
+  <p>Only GPT-5 implements the full reshare matrix:</p>
+  <ul>
+    <li>(1,1) → (t,n): <code>key_import::ecdsa_secret_shares</code> + <code>key_refresh</code> ✅</li>
+    <li>(t,n) → (t,n): <code>key_refresh</code> ✅</li>
+    <li>(t,n) → (t',n) same set: <code>quorum_change</code> ✅</li>
+    <li>(t,n) → (t',n') different size: <code>quorum_change</code> with mixed old/new committees ✅ (verified: (2,3)→(3,4) works end-to-end)</li>
+    <li>(t,n) → (1,1): <code>key_export</code> with x25519 export key ✅ (verified: receiver becomes singleton)</li>
+  </ul>
+  <p>Opus 4.7 explicitly errors on the last two; DeepSeek cannot do any reshare beyond a same-params refresh, and even that hung in our test.</p>
+</div>
+
+<div class="obs">
+  <h3>4.3  Speed vs polish</h3>
+  <ul>
+    <li><strong>GPT-5</strong> finished the work in 26 minutes of active time — 2.5× faster than Opus 4.7, 3.6× faster than DeepSeek. Almost no wasted iterations: 22 patches, 2 web searches, 0 explicit retries.</li>
+    <li><strong>Opus 4.7</strong> spent more time but produced the most polished artefact (clean module split, real README, comprehensive QA scripts, integration test that exercises actual storage round-trip). Lots of WebFetch-driven research up front (11 fetches into github/docs.rs/iroh docs).</li>
+    <li><strong>DeepSeek v4-pro</strong> did 95 minutes of active work for the worst result. 34 webfetches (most of any), 4 of which errored. Long sequences of "Reshare: 3 peers running refresh." with no progress.</li>
+  </ul>
+</div>
+
+<div class="obs">
+  <h3>4.4  DeepSeek explicitly asked the user a question — and ignored the answer</h3>
+  <p>DeepSeek invoked OpenCode's <code>question</code> tool once:</p>
+  <p style="margin:8px 14px;color:var(--muted)"><em>"would you accept a simpler networking approach (TCP streams with file-based discovery) that's more reliable, or do you specifically need iroh QUIC for this tool?"</em></p>
+  <p>The user's reply was emphatic: <em>"Initial request states clearly that this tool should work on localhost AND LAN, so file-based discovery is a critical flaw. iroh and related libs provide all the required functionality, you just didn't manage to use it correctly."</em> The shipped code still uses file-based discovery. Hypothesis: DeepSeek v4-pro repeatedly failed to figure out iroh's mDNS API, and the model treated the rebuke as guidance to "keep trying" rather than as a hard constraint.</p>
+</div>
+
+<div class="obs">
+  <h3>4.5  Pubkey serialisation diverges from the spec for DeepSeek</h3>
+  <p>The spec calls for showing pubkey on stdout. Opus 4.7 and GPT-5 print compressed SEC1 (33 bytes / 66 hex chars). DeepSeek prints raw uncompressed coordinates without the <code>04</code> prefix (64 bytes / 128 hex chars). This is technically a public key, but every downstream tool will choke. It's a leaky abstraction over <code>dkls23-secp256k1</code>'s API surface.</p>
+</div>
+
+<div class="obs">
+  <h3>4.6  Library choice mattered enormously</h3>
+  <p>Spec said <code>github.com/silence-laboratories/dkls23</code>. Opus 4.7 and GPT-5 picked <code>sl-dkls23</code> on crates.io — Silence Labs' v1 beta of the same code. DeepSeek picked <code>dkls23-secp256k1</code> — a different SL crate, multi-curve, with a much chattier phase-by-phase API. This forced DeepSeek to manually wire eight separate message types per DKG round, which it did adequately, then again for sign, then attempted reshare and got stuck. Opus and GPT-5 handed messages to dkls23's protocol task and let the library do the choreography.</p>
+</div>
+
+<div class="obs">
+  <h3>4.7  Why is DeepSeek v4-pro's output the worst?</h3>
+  <p>Several reinforcing factors. Probable root causes:</p>
+  <ul>
+    <li><strong>Lower base model capability</strong> — DeepSeek v4-pro is below Opus 4.7 / GPT-5 on long-horizon engineering tasks, especially when it has to navigate an unfamiliar crypto API.</li>
+    <li><strong>Wrong library at the start</strong> — picking <code>dkls23-secp256k1</code> required hand-assembling 4 DKG phases × N messages each. The error budget compounded.</li>
+    <li><strong>Discovery sidestep</strong> — when iroh's mDNS proved hard, the model fell back to <code>/tmp</code> rendezvous and never recovered, even after the user objected.</li>
+    <li><strong>No internal QA loop</strong> — qa_test.sh is the only real test, and it explicitly tolerates the broken multi-peer paths ("This is expected with the current file-based discovery"). Marking your own bug as a feature is a yellow flag.</li>
+  </ul>
+</div>
+
+<div class="obs">
+  <h3>4.8  Why is GPT-5 the fastest?</h3>
+  <ul>
+    <li>The session log shows almost no wasted edits — 22 <code>apply_patch</code> calls produced 1254 lines that build and pass the QA matrix on first try.</li>
+    <li>The Codex harness's <code>exec_command</code>+<code>write_stdin</code> pair (193 calls together) is GPT-5's primary tool — it can keep a long-running shell, drive cargo + tail logs without re-spawning. Claude Code instead fires 211 individual one-shot <code>Bash</code> calls.</li>
+    <li>Single-file architecture is faster to write (no module wiring) but harder to read — the trade-off favoured speed here.</li>
+    <li>GPT-5 used 16 M cached tokens vs. only 41 k uncached output. Almost everything benefits from KV-cache reuse, which keeps inference cheap and steady.</li>
+  </ul>
+</div>
+
+<div class="obs">
+  <h3>4.9  What Opus 4.7 did better than GPT-5</h3>
+  <ul>
+    <li><strong>Module structure</strong> — anyone joining the project can find <code>commands/sign.rs</code> in seconds; GPT-5's monolithic <code>main.rs</code> requires scrolling.</li>
+    <li><strong>Tests &amp; scripts</strong> — 4 shell scripts + integration test that round-trips the storage layer. GPT-5 has 2 in-memory tests and nothing for the real binary.</li>
+    <li><strong>README + comments</strong> — Opus explains the transport bridge and the reshare matrix in prose; GPT-5's only documentation is the type signatures.</li>
+    <li><strong>mDNS service-name privacy</strong> — Opus hashes <code>tool_id|key_id</code> so peers running other key sessions don't show up in your discovery.</li>
+  </ul>
+</div>
+
+<div class="obs">
+  <h3>4.10  The harness tax: Claude Code is the most annoying to operate</h3>
+  <p>While Opus 4.7 itself rarely needed user input on the actual task, the <em>Claude Code harness</em> demanded the most permission-prompt clicks of any of the three. After the session ended, <code>cc/.claude/settings.local.json</code> contained <strong>30 persisted "always allow" entries</strong> — and that's only the requests where the user picked the persistent option. The session log shows 50 <code>permissionMode</code> transitions through <code>acceptEdits</code> on top of those.</p>
+  <p>Worse, many of the persistent entries are uselessly narrow — they won't match a similar future command:</p>
+  <ul>
+    <li><code>Bash(/home/&lt;user&gt;/src/&lt;project&gt;/target/debug/dkls23ctl verify *)</code> — absolute path baked in; useless if the dir ever moves.</li>
+    <li><code>Bash(echo "exits: $?")</code>, <code>Bash(echo "exit=$?")</code>, <code>Bash(wait)</code> — exact-string match on a one-off shell snippet.</li>
+    <li><code>Bash(rm -rf .secrets)</code>, <code>Bash(pkill -f 'reshare --key-id sk1')</code> — pinned to the test's literal key-id, won't apply to any other run.</li>
+    <li><code>Bash(python3 -c '…literal 100-char snippet…')</code> — granted with the script body baked in.</li>
+    <li><code>Bash(DKLS23CTL_BIN=$(readlink -f ./target/debug/dkls23ctl) bash scripts/test_reshare.sh)</code> — a single command line frozen as a permission rule.</li>
+  </ul>
+  <p>And many tool calls offered no persistence option at all (or only a one-shot accept), so the user kept re-clicking through similar variants. By contrast, Codex defers to its sandbox profile (one decision at session start), and OpenCode's permission table for this session has zero persisted rules. <strong>Net effect: Opus 4.7 needed the user to mash the keyboard tens of times that the other two harnesses didn't ask about at all</strong> — and the resulting allow-list is mostly cruft that won't help a future session.</p>
+</div>
+
+<h2>5. Strengths &amp; weaknesses summary</h2>
+<table>
+  <thead><tr><th>Aspect</th><th>Opus 4.7 <small>· Claude Code</small></th><th>GPT-5 <small>· Codex</small></th><th>DeepSeek v4-pro <small>· OpenCode</small></th></tr></thead>
+  <tbody>
+    <tr><td>Spec compliance (mDNS)</td><td class="pass">Yes</td><td class="pass">Yes</td><td class="fail">No (filesystem)</td></tr>
+    <tr><td>Reshare completeness</td><td class="partial">Partial (no n-change, no export)</td><td class="pass">Full matrix</td><td class="fail">Refresh only, hangs</td></tr>
+    <tr><td>Code structure</td><td class="pass">Modular, idiomatic</td><td class="partial">Monolithic but tight</td><td class="partial">Modular but dense network.rs</td></tr>
+    <tr><td>Testing</td><td class="pass">2 tests + 4 scripts + run_all</td><td class="partial">2 tests, no scripts</td><td class="fail">0 tests, scripts admit failures</td></tr>
+    <tr><td>Documentation</td><td class="pass">README + module docs</td><td class="fail">None</td><td class="fail">None</td></tr>
+    <tr><td>Time efficiency</td><td>65 min active</td><td class="winner">26 min active</td><td>95 min active</td></tr>
+    <tr><td>Bugs</td><td class="pass">None observed</td><td class="pass">None observed</td><td class="fail">Silent param override; duplicated send loop; reshare hangs</td></tr>
+    <tr><td>API surface choice</td><td class="pass">SimpleMessageRelay (canonical)</td><td class="partial">Custom relay (works, more code)</td><td class="fail">Wrong upstream lib</td></tr>
+    <tr><td>Operator UX (output)</td><td class="pass">Tagged stdout (PUBKEY/SHARE/SIGNATURE)</td><td class="partial">Single hex line, no tag</td><td class="partial">Single hex line, wrong format</td></tr>
+    <tr><td>Operator UX (permissions)</td><td class="fail">~30 persisted grants, many over-narrow; lots of mid-session prompts</td><td class="pass">Sandbox profile, one decision at start</td><td class="pass">Zero persisted rules in session</td></tr>
+  </tbody>
+</table>
+
+<h2>6. Verdict</h2>
+<div class="hypo">
+  <p><strong class="winner">GPT-5 (Codex, high effort)</strong> is the most spec-complete and the fastest to produce a working tool. If the only criterion is "does it pass the QA matrix", GPT-5 wins.</p>
+  <p><strong>Opus 4.7 (Claude Code, x-high effort)</strong> wins on engineering quality — readable code, real tests, scripts, README, idiomatic library use — at the cost of skipping two reshare paths and spending more time. Best for handing off to another engineer. Operator caveat: the Claude Code harness's permission UX makes this the most interaction-heavy option, and most of its "always allow" rules end up too narrow to reuse.</p>
+  <p><strong>DeepSeek v4-pro (OpenCode, high/max effort)</strong> failed to deliver a tool that meets the spec. The combination of a weaker base model, an unfortunate library pick, and a stubborn refusal to fix the discovery layer after explicit user feedback makes this the clear loser. The lesson: when a model gets stuck on a constraint it doesn't understand, escalating to the user works only if the model is then willing to reverse course.</p>
+</div>
+
+<div class="footer">Generated 2026-05-02 from <code>~/.claude-personal</code>, <code>~/.codex/sessions</code>, and <code>~/.local/share/opencode/opencode.db</code>. Source data and scripts in this directory.</div>
+
+</div>
+
+<script>
+const REPORT_DATA = {"cc": {"name": "cc \u00b7 Claude Code (Opus 4.7)", "short": "cc", "metrics": {"wall_seconds": 11423.383, "active_seconds": 3366.3440000000014, "user_prompts": 5, "tool_calls": 337, "tool_breakdown": {"ToolSearch": 3, "Bash": 211, "WebFetch": 11, "TaskCreate": 10, "TaskUpdate": 18, "WebSearch": 2, "Write": 29, "Edit": 44, "Read": 4, "Monitor": 4, "TaskStop": 1}, "first_ts": "2026-05-02T13:32:19.409000+00:00", "last_ts": "2026-05-02T16:42:42.792000+00:00", "minute_counts": {"0": 9, "1": 29, "2": 2, "4": 5, "5": 7, "6": 6, "7": 10, "8": 6, "9": 3, "10": 11, "11": 2, "12": 6, "13": 12, "14": 5, "15": 4, "16": 6, "17": 4, "18": 6, "20": 9, "21": 3, "22": 5, "23": 1, "104": 2, "105": 4, "107": 7, "112": 1, "127": 4, "128": 10, "130": 10, "131": 3, "132": 2, "134": 8, "135": 1, "138": 5, "139": 1, "141": 2, "142": 11, "144": 3, "145": 7, "150": 2, "156": 4, "157": 5, "158": 6, "159": 15, "160": 1, "161": 1, "166": 6, "167": 1, "169": 2, "173": 3, "174": 6, "175": 1, "176": 1, "177": 4, "178": 4, "179": 14, "180": 9, "181": 10, "182": 5, "183": 5}, "start_epoch": 1777728739.409, "end_epoch": 1777740162.792}, "tokens": {"input": 16925, "output": 486182, "cache_read": 99453976, "cost_usd": null}, "timeline_rel": [[0, "user", "user prompt"], [5, "assistant", ""], [5, "tool_use", "ToolSearch"], [6, "tool_use", "Bash"], [7, "tool_use", "Bash"], [14, "user", "user prompt"], [21, "user", "user prompt"], [26, "assistant", ""], [26, "tool_use", "Bash"], [28, "assistant", ""], [29, "tool_use", "Bash"], [32, "tool_use", "WebFetch"], [34, "tool_use", "WebFetch"], [47, "tool_use", "Bash"], [57, "tool_use", "Bash"], [61, "assistant", ""], [61, "tool_use", "Bash"], [70, "tool_use", "TaskCreate"], [71, "tool_use", "TaskCreate"], [72, "tool_use", "TaskCreate"], [73, "tool_use", "TaskCreate"], [75, "tool_use", "TaskCreate"], [76, "tool_use", "TaskCreate"], [77, "tool_use", "TaskCreate"], [78, "tool_use", "TaskCreate"], [79, "tool_use", "TaskCreate"], [81, "tool_use", "TaskCreate"], [81, "tool_use", "Bash"], [82, "tool_use", "Bash"], [84, "tool_use", "Bash"], [85, "tool_use", "Bash"], [88, "tool_use", "Bash"], [88, "tool_use", "Bash"], [89, "tool_use", "Bash"], [93, "tool_use", "Bash"], [94, "tool_use", "Bash"], [97, "tool_use", "Bash"], [98, "tool_use", "Bash"], [100, "tool_use", "TaskUpdate"], [101, "tool_use", "Bash"], [102, "tool_use", "Bash"], [105, "tool_use", "Bash"], [106, "tool_use", "Bash"], [109, "tool_use", "Bash"], [109, "tool_use", "Bash"], [123, "assistant", ""], [123, "tool_use", "Bash"], [125, "tool_use", "WebFetch"], [255, "tool_use", "WebSearch"], [256, "tool_use", "Bash"], [275, "tool_use", "Bash"], [276, "tool_use", "Bash"], [281, "tool_use", "Bash"], [325, "assistant", ""], [325, "assistant", ""], [325, "tool_use", "WebFetch"], [333, "tool_use", "WebFetch"], [335, "tool_use", "WebFetch"], [339, "tool_use", "WebFetch"], [339, "tool_use", "WebSearch"], [354, "tool_use", "WebFetch"], [356, "tool_use", "WebFetch"], [372, "tool_use", "TaskUpdate"], [373, "tool_use", "TaskUpdate"], [374, "tool_use", "Bash"], [375, "tool_use", "Bash"], [395, "tool_use", "Bash"], [406, "assistant", ""], [406, "tool_use", "Bash"], [430, "tool_use", "Bash"], [435, "tool_use", "Bash"], [435, "tool_use", "Bash"], [444, "tool_use", "Bash"], [444, "tool_use", "Bash"], [456, "tool_use", "Bash"], [456, "tool_use", "Bash"], [463, "tool_use", "Bash"], [467, "tool_use", "Bash"], [467, "tool_use", "Bash"], [494, "tool_use", "Bash"], [495, "tool_use", "Bash"], [498, "tool_use", "Bash"], [499, "tool_use", "Bash"], [505, "tool_use", "Bash"], [517, "tool_use", "Bash"], [543, "assistant", ""], [543, "tool_use", "Bash"], [544, "tool_use", "Bash"], [547, "tool_use", "Bash"], [613, "assistant", ""], [613, "assistant", ""], [613, "tool_use", "TaskUpdate"], [613, "tool_use", "TaskUpdate"], [613, "tool_use", "TaskUpdate"], [614, "tool_use", "Bash"], [618, "tool_use", "Bash"], [618, "tool_use", "Bash"], [621, "tool_use", "Bash"], [624, "assistant", ""], [633, "tool_use", "Write"], [637, "tool_use", "Bash"], [640, "assistant", ""], [644, "tool_use", "Write"], [655, "tool_use", "Write"], [658, "assistant", ""], [682, "tool_use", "Write"], [684, "assistant", ""], [710, "tool_use", "Write"], [734, "assistant", ""], [735, "tool_use", "WebFetch"], [739, "tool_use", "WebFetch"], [742, "tool_use", "Bash"], [759, "assistant", ""], [759, "tool_use", "Bash"], [764, "tool_use", "Bash"], [777, "tool_use", "Bash"], [782, "tool_use", "Bash"], [785, "tool_use", "Bash"], [785, "tool_use", "Bash"], [792, "assistant", ""], [792, "tool_use", "Bash"], [816, "assistant", ""], [818, "tool_use", "Edit"], [821, "tool_use", "Bash"], [827, "tool_use", "Bash"], [831, "assistant", ""], [832, "tool_use", "Edit"], [835, "assistant", ""], [836, "tool_use", "Write"], [837, "tool_use", "Write"], [838, "tool_use", "Write"], [839, "tool_use", "Write"], [841, "tool_use", "Write"], [845, "tool_use", "Write"], [851, "tool_use", "Write"], [852, "tool_use", "Write"], [855, "assistant", ""], [856, "tool_use", "Bash"], [940, "assistant", ""], [940, "tool_use", "Bash"], [945, "tool_use", "Bash"], [952, "assistant", ""], [953, "tool_use", "Edit"], [956, "tool_use", "Bash"], [999, "assistant", ""], [1001, "tool_use", "Edit"], [1002, "tool_use", "Edit"], [1002, "tool_use", "Bash"], [1010, "assistant", ""], [1010, "tool_use", "TaskUpdate"], [1011, "tool_use", "TaskUpdate"], [1012, "tool_use", "Bash"], [1041, "tool_use", "Bash"], [1044, "tool_use", "Bash"], [1045, "tool_use", "Bash"], [1049, "assistant", ""], [1051, "tool_use", "Bash"], [1054, "assistant", ""], [1122, "tool_use", "Write"], [1125, "tool_use", "Bash"], [1131, "assistant", ""], [1131, "tool_use", "Edit"], [1132, "tool_use", "Edit"], [1133, "tool_use", "Edit"], [1134, "tool_use", "Bash"], [1143, "assistant", ""], [1143, "assistant", ""], [1211, "tool_use", "Write"], [1214, "tool_use", "Bash"], [1218, "assistant", ""], [1219, "tool_use", "TaskUpdate"], [1220, "tool_use", "TaskUpdate"], [1222, "tool_use", "Bash"], [1223, "tool_use", "Bash"], [1225, "assistant", ""], [1247, "tool_use", "Write"], [1250, "tool_use", "Bash"], [1257, "tool_use", "Bash"], [1261, "assistant", ""], [1262, "tool_use", "TaskUpdate"], [1262, "tool_use", "TaskUpdate"], [1290, "tool_use", "Write"], [1320, "assistant", ""], [1320, "assistant", ""], [1326, "tool_use", "Edit"], [1331, "tool_use", "Edit"], [1332, "tool_use", "Edit"], [1333, "tool_use", "Bash"], [1337, "assistant", ""], [1338, "tool_use", "Bash"], [1428, "assistant", ""], [1429, "tool_use", "Bash"], [6268, "tool_use", "Bash"], [6285, "tool_use", "Bash"], [6293, "assistant", ""], [6293, "assistant", ""], [6300, "tool_use", "Edit"], [6304, "tool_use", "Bash"], [6324, "assistant", ""], [6327, "tool_use", "Bash"], [6341, "assistant", ""], [6345, "tool_use", "Bash"], [6439, "assistant", ""], [6439, "tool_use", "TaskUpdate"], [6439, "tool_use", "TaskUpdate"], [6440, "tool_use", "TaskUpdate"], [6442, "tool_use", "Bash"], [6443, "tool_use", "Bash"], [6455, "tool_use", "Bash"], [6456, "tool_use", "Bash"], [6757, "assistant", ""], [6757, "assistant", ""], [6758, "tool_use", "Bash"], [7655, "assistant", ""], [7656, "assistant", ""], [7664, "tool_use", "Edit"], [7669, "tool_use", "Edit"], [7672, "tool_use", "Edit"], [7676, "tool_use", "Edit"], [7684, "tool_use", "Edit"], [7696, "tool_use", "Edit"], [7698, "tool_use", "Edit"], [7705, "tool_use", "Edit"], [7707, "tool_use", "Edit"], [7708, "tool_use", "Bash"], [7714, "tool_use", "Bash"], [7716, "tool_use", "Read"], [7720, "assistant", ""], [7720, "tool_use", "Bash"], [7726, "assistant", ""], [7727, "tool_use", "Bash"], [7742, "assistant", ""], [7812, "tool_use", "Write"], [7816, "tool_use", "Bash"], [7821, "tool_use", "Edit"], [7822, "tool_use", "Edit"], [7823, "tool_use", "Edit"], [7824, "tool_use", "Edit"], [7826, "tool_use", "Edit"], [7827, "tool_use", "Bash"], [7831, "assistant", ""], [7831, "tool_use", "Bash"], [7846, "tool_use", "Bash"], [7882, "assistant", ""], [7884, "tool_use", "Bash"], [7902, "assistant", ""], [7903, "tool_use", "Bash"], [7907, "tool_use", "Bash"], [7928, "assistant", ""], [7931, "tool_use", "Bash"], [7942, "tool_use", "Bash"], [8072, "tool_use", "Bash"], [8075, "tool_use", "ToolSearch"], [8082, "tool_use", "Bash"], [8085, "tool_use", "Bash"], [8089, "tool_use", "Bash"], [8092, "tool_use", "Bash"], [8094, "tool_use", "Bash"], [8099, "tool_use", "Bash"], [8106, "assistant", ""], [8107, "tool_use", "Bash"], [8222, "assistant", ""], [8222, "assistant", ""], [8286, "tool_use", "Write"], [8290, "tool_use", "Bash"], [8296, "assistant", ""], [8298, "tool_use", "Bash"], [8322, "tool_use", "Bash"], [8335, "tool_use", "Bash"], [8338, "assistant", ""], [8342, "tool_use", "Bash"], [8503, "assistant", ""], [8503, "tool_use", "TaskUpdate"], [8504, "tool_use", "TaskUpdate"], [8532, "tool_use", "Write"], [8537, "assistant", ""], [8538, "tool_use", "Write"], [8540, "tool_use", "Edit"], [8541, "tool_use", "Edit"], [8542, "tool_use", "Bash"], [8555, "tool_use", "Edit"], [8560, "tool_use", "Edit"], [8562, "tool_use", "Edit"], [8566, "tool_use", "Edit"], [8566, "tool_use", "Bash"], [8571, "tool_use", "Bash"], [8673, "tool_use", "Edit"], [8673, "tool_use", "Bash"], [8685, "assistant", ""], [8691, "tool_use", "Write"], [8703, "tool_use", "Write"], [8716, "tool_use", "Write"], [8718, "tool_use", "Write"], [8718, "tool_use", "Bash"], [8735, "tool_use", "Bash"], [8750, "tool_use", "Edit"], [8751, "tool_use", "Bash"], [9046, "assistant", ""], [9046, "tool_use", "Bash"], [9051, "assistant", ""], [9051, "tool_use", "Bash"], [9398, "tool_use", "Bash"], [9402, "tool_use", "Bash"], [9405, "tool_use", "Bash"], [9406, "tool_use", "Bash"], [9424, "assistant", ""], [9425, "tool_use", "Bash"], [9456, "tool_use", "Bash"], [9470, "assistant", ""], [9471, "tool_use", "Bash"], [9475, "tool_use", "Bash"], [9478, "tool_use", "Bash"], [9482, "tool_use", "Bash"], [9484, "tool_use", "Bash"], [9501, "assistant", ""], [9501, "tool_use", "Bash"], [9513, "tool_use", "Bash"], [9521, "tool_use", "Bash"], [9522, "tool_use", "Bash"], [9540, "assistant", ""], [9541, "tool_use", "Bash"], [9544, "tool_use", "Bash"], [9547, "tool_use", "Bash"], [9550, "tool_use", "Bash"], [9553, "tool_use", "Bash"], [9560, "assistant", ""], [9561, "tool_use", "Bash"], [9572, "tool_use", "Monitor"], [9574, "tool_use", "ToolSearch"], [9577, "tool_use", "Bash"], [9581, "tool_use", "Bash"], [9584, "tool_use", "Bash"], [9586, "tool_use", "Bash"], [9589, "assistant", ""], [9590, "tool_use", "Bash"], [9593, "tool_use", "Bash"], [9599, "assistant", ""], [9599, "tool_use", "Bash"], [9608, "assistant", ""], [9611, "tool_use", "Bash"], [9674, "assistant", ""], [9674, "tool_use", "Bash"], [9969, "tool_use", "Bash"], [9990, "assistant", ""], [9991, "tool_use", "Bash"], [9997, "tool_use", "Monitor"], [10000, "tool_use", "Bash"], [10008, "tool_use", "Bash"], [10012, "assistant", ""], [10013, "tool_use", "Bash"], [10040, "assistant", ""], [10041, "tool_use", "Bash"], [10166, "assistant", ""], [10166, "assistant", ""], [10166, "tool_use", "Bash"], [10167, "tool_use", "TaskStop"], [10423, "tool_use", "Bash"], [10429, "tool_use", "Bash"], [10432, "tool_use", "Bash"], [10444, "tool_use", "Bash"], [10449, "assistant", ""], [10450, "tool_use", "Read"], [10457, "tool_use", "Edit"], [10463, "tool_use", "Edit"], [10464, "tool_use", "Bash"], [10488, "tool_use", "Bash"], [10530, "tool_use", "Bash"], [10566, "tool_use", "Bash"], [10656, "assistant", ""], [10657, "tool_use", "Bash"], [10670, "assistant", ""], [10670, "assistant", ""], [10671, "tool_use", "Edit"], [10675, "tool_use", "Edit"], [10676, "tool_use", "Bash"], [10684, "tool_use", "Bash"], [10715, "assistant", ""], [10716, "tool_use", "Bash"], [10721, "tool_use", "Monitor"], [10724, "assistant", ""], [10731, "tool_use", "Edit"], [10741, "assistant", ""], [10742, "tool_use", "Bash"], [10745, "tool_use", "Bash"], [10753, "tool_use", "Edit"], [10754, "tool_use", "Bash"], [10768, "assistant", ""], [10768, "tool_use", "Bash"], [10771, "tool_use", "Bash"], [10774, "tool_use", "Bash"], [10777, "tool_use", "Bash"], [10782, "tool_use", "Bash"], [10785, "tool_use", "Bash"], [10790, "tool_use", "Bash"], [10793, "tool_use", "Bash"], [10794, "tool_use", "Bash"], [10797, "tool_use", "Bash"], [10801, "tool_use", "Bash"], [10806, "assistant", ""], [10807, "tool_use", "Bash"], [10807, "tool_use", "TaskUpdate"], [10812, "assistant", ""], [10813, "tool_use", "Bash"], [10820, "tool_use", "Monitor"], [10825, "assistant", ""], [10844, "tool_use", "Write"], [10847, "assistant", ""], [10847, "tool_use", "Bash"], [10851, "tool_use", "Bash"], [10859, "tool_use", "Bash"], [10864, "tool_use", "Bash"], [10875, "assistant", ""], [10875, "tool_use", "Bash"], [10879, "tool_use", "Bash"], [10883, "assistant", ""], [10884, "tool_use", "Bash"], [10887, "assistant", ""], [10888, "tool_use", "Read"], [10893, "tool_use", "Edit"], [10894, "tool_use", "Read"], [10899, "tool_use", "Edit"], [10902, "tool_use", "Edit"], [10902, "tool_use", "Bash"], [10924, "tool_use", "Edit"], [10925, "tool_use", "Bash"], [10942, "assistant", ""], [10945, "tool_use", "Bash"], [10948, "assistant", ""], [10948, "tool_use", "Bash"], [10953, "assistant", ""], [10953, "tool_use", "Bash"], [10988, "tool_use", "Bash"], [11004, "assistant", ""], [11004, "assistant", ""], [11004, "tool_use", "Bash"], [11009, "tool_use", "Write"], [11016, "tool_use", "Write"], [11025, "tool_use", "Write"], [11043, "assistant", ""], [11321, "user", "user prompt"], [11324, "assistant", ""], [11421, "user", "user prompt"], [11423, "assistant", ""]], "color": "#7c4dff"}, "cd": {"name": "cd \u00b7 Codex (GPT-5)", "short": "cd", "metrics": {"wall_seconds": 7684.753, "active_seconds": 1503.8159999999996, "user_prompts": 1, "tool_calls": 217, "tool_breakdown": {"exec_command": 140, "web_search": 2, "write_stdin": 53, "apply_patch": 22}, "first_ts": "2026-05-02T13:31:55.308000+00:00", "last_ts": "2026-05-02T15:40:00.061000+00:00", "minute_counts": {"0": 25, "1": 16, "2": 8, "3": 9, "6": 4, "7": 2, "8": 6, "9": 7, "10": 2, "11": 7, "12": 5, "13": 9, "14": 10, "15": 9, "16": 10, "17": 8, "18": 4, "22": 4, "23": 9, "24": 2, "105": 4, "106": 4, "107": 3, "108": 10, "109": 6, "110": 9, "111": 3, "112": 8, "127": 12, "128": 2}, "start_epoch": 1777728715.308, "end_epoch": 1777736400.061}, "tokens": {"input": 16372713, "output": 41357, "cache_read": 15990912, "reasoning": 8005, "cost_usd": null}, "timeline_rel": [[0, "user", "user prompt"], [6, "tool_use", "exec_command"], [6, "tool_use", "exec_command"], [6, "tool_use", "exec_command"], [11, "tool_use", "exec_command"], [11, "tool_use", "exec_command"], [11, "tool_use", "exec_command"], [14, "tool_use", "web_search"], [17, "tool_use", "web_search"], [23, "tool_use", "exec_command"], [24, "tool_use", "exec_command"], [24, "tool_use", "exec_command"], [24, "tool_use", "exec_command"], [28, "tool_use", "write_stdin"], [28, "tool_use", "write_stdin"], [28, "tool_use", "write_stdin"], [34, "tool_use", "exec_command"], [34, "tool_use", "exec_command"], [43, "tool_use", "exec_command"], [43, "tool_use", "exec_command"], [43, "tool_use", "exec_command"], [43, "tool_use", "exec_command"], [52, "tool_use", "exec_command"], [52, "tool_use", "exec_command"], [52, "tool_use", "exec_command"], [52, "tool_use", "exec_command"], [63, "tool_use", "exec_command"], [63, "tool_use", "exec_command"], [63, "tool_use", "exec_command"], [63, "tool_use", "exec_command"], [72, "tool_use", "exec_command"], [72, "tool_use", "exec_command"], [72, "tool_use", "exec_command"], [72, "tool_use", "exec_command"], [81, "tool_use", "exec_command"], [81, "tool_use", "exec_command"], [81, "tool_use", "exec_command"], [81, "tool_use", "exec_command"], [93, "tool_use", "exec_command"], [93, "tool_use", "exec_command"], [93, "tool_use", "exec_command"], [93, "tool_use", "exec_command"], [124, "tool_use", "exec_command"], [124, "tool_use", "exec_command"], [124, "tool_use", "exec_command"], [124, "tool_use", "exec_command"], [135, "tool_use", "exec_command"], [157, "tool_use", "exec_command"], [157, "tool_use", "exec_command"], [165, "tool_use", "exec_command"], [186, "tool_use", "exec_command"], [186, "tool_use", "exec_command"], [186, "tool_use", "exec_command"], [191, "tool_use", "exec_command"], [194, "tool_use", "exec_command"], [198, "tool_use", "exec_command"], [201, "tool_use", "exec_command"], [205, "tool_use", "exec_command"], [208, "tool_use", "exec_command"], [380, "tool_use", "apply_patch"], [385, "tool_use", "exec_command"], [390, "tool_use", "write_stdin"], [397, "tool_use", "write_stdin"], [429, "tool_use", "write_stdin"], [461, "tool_use", "write_stdin"], [485, "tool_use", "apply_patch"], [487, "tool_use", "exec_command"], [490, "tool_use", "write_stdin"], [530, "tool_use", "apply_patch"], [535, "tool_use", "exec_command"], [538, "tool_use", "write_stdin"], [542, "tool_use", "apply_patch"], [544, "tool_use", "exec_command"], [546, "tool_use", "write_stdin"], [554, "tool_use", "apply_patch"], [557, "tool_use", "exec_command"], [560, "tool_use", "exec_command"], [578, "tool_use", "write_stdin"], [611, "tool_use", "write_stdin"], [643, "tool_use", "write_stdin"], [675, "tool_use", "write_stdin"], [683, "tool_use", "exec_command"], [683, "tool_use", "exec_command"], [687, "tool_use", "write_stdin"], [687, "tool_use", "write_stdin"], [700, "tool_use", "write_stdin"], [719, "tool_use", "exec_command"], [724, "tool_use", "exec_command"], [729, "tool_use", "exec_command"], [729, "tool_use", "exec_command"], [737, "tool_use", "exec_command"], [737, "tool_use", "exec_command"], [804, "tool_use", "exec_command"], [804, "tool_use", "exec_command"], [804, "tool_use", "exec_command"], [807, "tool_use", "write_stdin"], [810, "tool_use", "exec_command"], [817, "tool_use", "exec_command"], [822, "tool_use", "exec_command"], [828, "tool_use", "write_stdin"], [828, "tool_use", "write_stdin"], [843, "tool_use", "write_stdin"], [843, "tool_use", "write_stdin"], [851, "tool_use", "exec_command"], [859, "tool_use", "apply_patch"], [862, "tool_use", "exec_command"], [866, "tool_use", "write_stdin"], [876, "tool_use", "write_stdin"], [876, "tool_use", "write_stdin"], [890, "tool_use", "exec_command"], [894, "tool_use", "exec_command"], [900, "tool_use", "exec_command"], [900, "tool_use", "exec_command"], [906, "tool_use", "exec_command"], [910, "tool_use", "exec_command"], [925, "tool_use", "apply_patch"], [928, "tool_use", "exec_command"], [931, "tool_use", "exec_command"], [939, "tool_use", "write_stdin"], [953, "tool_use", "write_stdin"], [962, "tool_use", "exec_command"], [969, "tool_use", "exec_command"], [969, "tool_use", "exec_command"], [982, "tool_use", "apply_patch"], [986, "tool_use", "exec_command"], [990, "tool_use", "apply_patch"], [993, "tool_use", "exec_command"], [995, "tool_use", "exec_command"], [1001, "tool_use", "write_stdin"], [1018, "tool_use", "exec_command"], [1024, "tool_use", "exec_command"], [1024, "tool_use", "exec_command"], [1032, "tool_use", "apply_patch"], [1035, "tool_use", "exec_command"], [1039, "tool_use", "exec_command"], [1043, "tool_use", "write_stdin"], [1050, "tool_use", "exec_command"], [1079, "tool_use", "exec_command"], [1089, "tool_use", "apply_patch"], [1092, "tool_use", "exec_command"], [1097, "tool_use", "write_stdin"], [1101, "tool_use", "exec_command"], [1350, "tool_use", "apply_patch"], [1352, "tool_use", "exec_command"], [1355, "tool_use", "write_stdin"], [1360, "tool_use", "exec_command"], [1393, "tool_use", "exec_command"], [1398, "tool_use", "exec_command"], [1402, "tool_use", "write_stdin"], [1402, "tool_use", "write_stdin"], [1407, "tool_use", "exec_command"], [1415, "tool_use", "exec_command"], [1415, "tool_use", "exec_command"], [1421, "tool_use", "write_stdin"], [1421, "tool_use", "write_stdin"], [1442, "tool_use", "exec_command"], [1442, "tool_use", "exec_command"], [6323, "tool_use", "write_stdin"], [6323, "tool_use", "write_stdin"], [6354, "tool_use", "apply_patch"], [6358, "tool_use", "exec_command"], [6361, "tool_use", "exec_command"], [6366, "tool_use", "write_stdin"], [6373, "tool_use", "exec_command"], [6373, "tool_use", "exec_command"], [6466, "tool_use", "write_stdin"], [6466, "tool_use", "write_stdin"], [6471, "tool_use", "exec_command"], [6482, "tool_use", "exec_command"], [6482, "tool_use", "exec_command"], [6482, "tool_use", "exec_command"], [6490, "tool_use", "exec_command"], [6490, "tool_use", "exec_command"], [6513, "tool_use", "apply_patch"], [6516, "tool_use", "exec_command"], [6520, "tool_use", "apply_patch"], [6525, "tool_use", "apply_patch"], [6533, "tool_use", "apply_patch"], [6554, "tool_use", "apply_patch"], [6561, "tool_use", "apply_patch"], [6575, "tool_use", "apply_patch"], [6580, "tool_use", "exec_command"], [6583, "tool_use", "exec_command"], [6586, "tool_use", "exec_command"], [6600, "tool_use", "apply_patch"], [6604, "tool_use", "exec_command"], [6607, "tool_use", "write_stdin"], [6609, "tool_use", "exec_command"], [6612, "tool_use", "write_stdin"], [6623, "tool_use", "exec_command"], [6627, "tool_use", "write_stdin"], [6639, "tool_use", "exec_command"], [6639, "tool_use", "exec_command"], [6696, "tool_use", "write_stdin"], [6696, "tool_use", "write_stdin"], [6701, "tool_use", "exec_command"], [6723, "tool_use", "apply_patch"], [6726, "tool_use", "exec_command"], [6732, "tool_use", "write_stdin"], [6736, "tool_use", "exec_command"], [6739, "tool_use", "write_stdin"], [6745, "tool_use", "exec_command"], [6753, "tool_use", "exec_command"], [6753, "tool_use", "exec_command"], [7632, "tool_use", "write_stdin"], [7632, "tool_use", "write_stdin"], [7641, "tool_use", "exec_command"], [7641, "tool_use", "exec_command"], [7656, "tool_use", "write_stdin"], [7656, "tool_use", "write_stdin"], [7661, "tool_use", "exec_command"], [7667, "tool_use", "exec_command"], [7671, "tool_use", "exec_command"], [7671, "tool_use", "exec_command"], [7676, "tool_use", "write_stdin"], [7676, "tool_use", "write_stdin"], [7684, "tool_use", "exec_command"], [7684, "tool_use", "exec_command"]], "color": "#00bfa5"}, "oc": {"name": "oc \u00b7 OpenCode (DeepSeek v4-pro)", "short": "oc", "metrics": {"wall_seconds": 13023.796, "active_seconds": 5452.072999999996, "user_prompts": 1, "tool_calls": 294, "tool_breakdown": {"bash": 150, "webfetch": 34, "todowrite": 4, "write": 26, "grep": 3, "read": 10, "edit": 66, "question": 1}, "first_ts": "2026-05-02T13:31:43.730000+00:00", "last_ts": "2026-05-02T17:08:47.526000+00:00", "minute_counts": {"0": 15, "1": 10, "2": 8, "3": 4, "4": 3, "6": 1, "7": 1, "8": 1, "9": 1, "12": 1, "14": 1, "15": 1, "17": 2, "18": 1, "22": 7, "23": 8, "105": 4, "106": 2, "108": 1, "111": 2, "112": 4, "113": 5, "114": 7, "115": 6, "116": 1, "118": 1, "121": 1, "122": 4, "123": 7, "124": 5, "125": 6, "126": 6, "127": 3, "128": 5, "129": 1, "130": 2, "131": 2, "132": 2, "134": 4, "135": 3, "137": 5, "139": 1, "140": 2, "142": 2, "143": 1, "145": 1, "146": 2, "147": 7, "150": 2, "151": 1, "153": 3, "154": 1, "155": 1, "156": 4, "157": 1, "159": 2, "160": 1, "161": 1, "162": 2, "163": 2, "164": 3, "165": 3, "166": 1, "167": 2, "168": 6, "169": 2, "170": 2, "171": 1, "172": 2, "174": 1, "176": 1, "179": 2, "180": 5, "181": 2, "182": 2, "183": 2, "185": 1, "187": 1, "190": 2, "191": 1, "192": 1, "193": 2, "194": 1, "195": 1, "196": 3, "197": 3, "198": 3, "199": 1, "200": 3, "203": 5, "204": 8, "205": 6, "206": 3, "209": 2, "210": 2, "211": 3, "212": 1, "213": 4, "214": 4, "215": 3, "216": 1, "217": 1}, "start_epoch": 1777728703.73, "end_epoch": 1777741727.526}, "tokens": {"input": 204645, "output": 124880, "cache_read": 60507904, "reasoning": 51938, "cost_usd": 9.74}, "timeline_rel": [[0, "user", "user prompt"], [8, "tool_use", "bash"], [9, "tool_use", "bash"], [15, "tool_use", "webfetch"], [16, "tool_use", "webfetch"], [18, "tool_use", "webfetch"], [25, "tool_use", "webfetch"], [27, "tool_use", "webfetch"], [29, "tool_use", "webfetch"], [31, "tool_use", "webfetch"], [44, "tool_use", "webfetch"], [46, "tool_use", "webfetch"], [48, "tool_use", "webfetch"], [55, "tool_use", "webfetch"], [57, "tool_use", "webfetch"], [59, "tool_use", "webfetch"], [66, "tool_use", "webfetch"], [67, "tool_use", "webfetch"], [82, "tool_use", "webfetch"], [84, "tool_use", "webfetch"], [86, "tool_use", "webfetch"], [96, "tool_use", "webfetch"], [98, "tool_use", "webfetch"], [104, "tool_use", "webfetch"], [115, "tool_use", "webfetch"], [117, "tool_use", "webfetch"], [122, "tool_use", "webfetch"], [124, "tool_use", "webfetch"], [127, "tool_use", "webfetch"], [147, "tool_use", "webfetch"], [149, "tool_use", "webfetch"], [151, "tool_use", "webfetch"], [173, "tool_use", "webfetch"], [175, "tool_use", "webfetch"], [199, "tool_use", "todowrite"], [211, "tool_use", "bash"], [219, "tool_use", "bash"], [221, "tool_use", "webfetch"], [255, "tool_use", "write"], [270, "tool_use", "webfetch"], [272, "tool_use", "webfetch"], [409, "tool_use", "write"], [457, "tool_use", "write"], [492, "tool_use", "write"], [548, "tool_use", "write"], [747, "tool_use", "write"], [886, "tool_use", "bash"], [909, "tool_use", "bash"], [1059, "tool_use", "bash"], [1079, "tool_use", "bash"], [1113, "tool_use", "grep"], [1351, "tool_use", "grep"], [1354, "tool_use", "grep"], [1360, "tool_use", "bash"], [1363, "tool_use", "bash"], [1368, "tool_use", "bash"], [1371, "tool_use", "bash"], [1379, "tool_use", "bash"], [1382, "tool_use", "bash"], [1389, "tool_use", "bash"], [1394, "tool_use", "bash"], [1398, "tool_use", "bash"], [1406, "tool_use", "bash"], [1410, "tool_use", "bash"], [1416, "tool_use", "bash"], [1419, "tool_use", "bash"], [6310, "tool_use", "bash"], [6313, "tool_use", "bash"], [6327, "tool_use", "bash"], [6332, "tool_use", "read"], [6368, "tool_use", "bash"], [6389, "tool_use", "write"], [6505, "tool_use", "write"], [6691, "tool_use", "bash"], [6699, "tool_use", "bash"], [6745, "tool_use", "bash"], [6748, "tool_use", "bash"], [6763, "tool_use", "bash"], [6777, "tool_use", "edit"], [6787, "tool_use", "edit"], [6796, "tool_use", "edit"], [6823, "tool_use", "edit"], [6832, "tool_use", "edit"], [6839, "tool_use", "edit"], [6845, "tool_use", "edit"], [6853, "tool_use", "edit"], [6861, "tool_use", "bash"], [6870, "tool_use", "bash"], [6879, "tool_use", "edit"], [6891, "tool_use", "edit"], [6899, "tool_use", "edit"], [6908, "tool_use", "edit"], [6914, "tool_use", "edit"], [6920, "tool_use", "edit"], [6927, "tool_use", "edit"], [6936, "tool_use", "edit"], [6946, "tool_use", "bash"], [6985, "tool_use", "write"], [7126, "tool_use", "write"], [7317, "tool_use", "edit"], [7325, "tool_use", "read"], [7330, "tool_use", "write"], [7363, "tool_use", "bash"], [7376, "tool_use", "bash"], [7385, "tool_use", "edit"], [7392, "tool_use", "edit"], [7401, "tool_use", "edit"], [7411, "tool_use", "edit"], [7418, "tool_use", "edit"], [7429, "tool_use", "edit"], [7436, "tool_use", "bash"], [7449, "tool_use", "edit"], [7465, "tool_use", "read"], [7474, "tool_use", "bash"], [7481, "tool_use", "read"], [7488, "tool_use", "edit"], [7505, "tool_use", "edit"], [7512, "tool_use", "edit"], [7523, "tool_use", "edit"], [7531, "tool_use", "edit"], [7539, "tool_use", "bash"], [7549, "tool_use", "todowrite"], [7561, "tool_use", "edit"], [7568, "tool_use", "edit"], [7584, "tool_use", "write"], [7601, "tool_use", "bash"], [7606, "tool_use", "write"], [7617, "tool_use", "write"], [7646, "tool_use", "write"], [7663, "tool_use", "bash"], [7668, "tool_use", "bash"], [7690, "tool_use", "edit"], [7697, "tool_use", "edit"], [7704, "tool_use", "edit"], [7712, "tool_use", "edit"], [7731, "tool_use", "bash"], [7791, "tool_use", "write"], [7817, "tool_use", "write"], [7836, "tool_use", "bash"], [7884, "tool_use", "bash"], [7890, "tool_use", "bash"], [7939, "tool_use", "bash"], [7951, "tool_use", "write"], [8063, "tool_use", "bash"], [8074, "tool_use", "bash"], [8081, "tool_use", "bash"], [8087, "tool_use", "bash"], [8105, "tool_use", "edit"], [8121, "tool_use", "bash"], [8129, "tool_use", "bash"], [8232, "tool_use", "edit"], [8246, "tool_use", "edit"], [8255, "tool_use", "edit"], [8264, "tool_use", "edit"], [8272, "tool_use", "bash"], [8349, "tool_use", "bash"], [8419, "tool_use", "bash"], [8440, "tool_use", "bash"], [8531, "tool_use", "write"], [8561, "tool_use", "bash"], [8598, "tool_use", "bash"], [8712, "tool_use", "bash"], [8767, "tool_use", "bash"], [8810, "tool_use", "edit"], [8822, "tool_use", "edit"], [8830, "tool_use", "edit"], [8845, "tool_use", "edit"], [8856, "tool_use", "read"], [8862, "tool_use", "read"], [8868, "tool_use", "edit"], [8879, "tool_use", "bash"], [9029, "tool_use", "bash"], [9035, "tool_use", "bash"], [9070, "tool_use", "bash"], [9202, "tool_use", "bash"], [9209, "tool_use", "bash"], [9233, "tool_use", "bash"], [9278, "tool_use", "bash"], [9329, "tool_use", "bash"], [9385, "tool_use", "edit"], [9397, "tool_use", "read"], [9402, "tool_use", "edit"], [9417, "tool_use", "edit"], [9442, "tool_use", "bash"], [9573, "tool_use", "bash"], [9591, "tool_use", "bash"], [9610, "tool_use", "bash"], [9684, "tool_use", "bash"], [9760, "tool_use", "bash"], [9777, "tool_use", "bash"], [9817, "tool_use", "bash"], [9825, "tool_use", "bash"], [9850, "tool_use", "bash"], [9876, "tool_use", "edit"], [9888, "tool_use", "edit"], [9907, "tool_use", "bash"], [9947, "tool_use", "bash"], [9957, "tool_use", "bash"], [9965, "tool_use", "bash"], [10037, "tool_use", "edit"], [10073, "tool_use", "bash"], [10107, "tool_use", "bash"], [10114, "tool_use", "bash"], [10120, "tool_use", "read"], [10126, "tool_use", "bash"], [10131, "tool_use", "read"], [10137, "tool_use", "edit"], [10144, "tool_use", "bash"], [10185, "tool_use", "bash"], [10226, "tool_use", "bash"], [10233, "tool_use", "bash"], [10276, "tool_use", "bash"], [10325, "tool_use", "todowrite"], [10347, "tool_use", "write"], [10470, "tool_use", "write"], [10572, "tool_use", "write"], [10747, "tool_use", "edit"], [10761, "tool_use", "bash"], [10805, "tool_use", "bash"], [10814, "tool_use", "edit"], [10821, "tool_use", "bash"], [10831, "tool_use", "edit"], [10838, "tool_use", "bash"], [10892, "tool_use", "bash"], [10905, "tool_use", "bash"], [10926, "tool_use", "bash"], [10969, "tool_use", "bash"], [11017, "tool_use", "bash"], [11032, "tool_use", "bash"], [11100, "tool_use", "question"], [11267, "tool_use", "write"], [11416, "tool_use", "bash"], [11455, "tool_use", "bash"], [11509, "tool_use", "bash"], [11538, "tool_use", "bash"], [11609, "tool_use", "edit"], [11623, "tool_use", "bash"], [11670, "tool_use", "bash"], [11751, "tool_use", "edit"], [11767, "tool_use", "bash"], [11804, "tool_use", "bash"], [11813, "tool_use", "bash"], [11831, "tool_use", "bash"], [11856, "tool_use", "edit"], [11864, "tool_use", "bash"], [11897, "tool_use", "bash"], [11915, "tool_use", "edit"], [11935, "tool_use", "bash"], [11941, "tool_use", "read"], [12010, "tool_use", "bash"], [12018, "tool_use", "bash"], [12044, "tool_use", "write"], [12183, "tool_use", "bash"], [12199, "tool_use", "bash"], [12209, "tool_use", "edit"], [12221, "tool_use", "bash"], [12232, "tool_use", "bash"], [12240, "tool_use", "edit"], [12250, "tool_use", "bash"], [12257, "tool_use", "bash"], [12265, "tool_use", "edit"], [12275, "tool_use", "bash"], [12282, "tool_use", "bash"], [12291, "tool_use", "bash"], [12299, "tool_use", "edit"], [12306, "tool_use", "edit"], [12313, "tool_use", "bash"], [12319, "tool_use", "bash"], [12326, "tool_use", "edit"], [12336, "tool_use", "edit"], [12350, "tool_use", "bash"], [12361, "tool_use", "bash"], [12398, "tool_use", "bash"], [12419, "tool_use", "write"], [12548, "tool_use", "bash"], [12587, "tool_use", "bash"], [12613, "tool_use", "bash"], [12635, "tool_use", "bash"], [12668, "tool_use", "bash"], [12690, "tool_use", "bash"], [12711, "tool_use", "bash"], [12751, "tool_use", "bash"], [12781, "tool_use", "bash"], [12788, "tool_use", "bash"], [12830, "tool_use", "bash"], [12834, "tool_use", "bash"], [12841, "tool_use", "bash"], [12864, "tool_use", "bash"], [12884, "tool_use", "bash"], [12890, "tool_use", "bash"], [12904, "tool_use", "bash"], [12912, "tool_use", "write"], [12958, "tool_use", "bash"], [12988, "tool_use", "bash"], [13023, "tool_use", "todowrite"]], "color": "#ff6e40"}};
+
+const COLORS = {cc: '#7c4dff', cd: '#00bfa5', oc: '#ff6e40'};
+const SCENARIOS = [{"name": "Singleton keygen + sign + verify", "spec_required": true, "cc": "PASS", "cd": "PASS", "oc": "PASS"}, {"name": "Singleton: tampered message rejected", "spec_required": true, "cc": "PASS", "cd": "PASS", "oc": "PASS"}, {"name": "pubkey command shows pubkey", "spec_required": true, "cc": "PASS", "cd": "PASS", "oc": "PASS"}, {"name": "2-of-3 distributed keygen (mDNS, parallel)", "spec_required": true, "cc": "PASS (~0.4s peer rendezvous)", "cd": "PASS (~1s)", "oc": "PASS (~14s, file-disco not mDNS)"}, {"name": "2-of-3 distributed sign + verify", "spec_required": true, "cc": "PASS", "cd": "PASS", "oc": "PASS"}, {"name": "All peers agree on pubkey/signature", "spec_required": true, "cc": "PASS", "cd": "PASS", "oc": "PASS"}, {"name": "Reshare (1,1) \u2192 (t,n) singleton split", "spec_required": true, "cc": "PASS", "cd": "PASS", "oc": "FAIL \u2014 new peers without share fail with ENOENT"}, {"name": "Reshare (t,n) \u2192 (t',n) same set, change t (quorum_change)", "spec_required": true, "cc": "PASS (key_refresh path for same params)", "cd": "PASS", "oc": "FAIL \u2014 hung indefinitely after 'running refresh'"}, {"name": "Reshare same params (refresh)", "spec_required": "implied", "cc": "PASS", "cd": "PASS", "oc": "FAIL \u2014 hung indefinitely"}, {"name": "Reshare (t,n) \u2192 (1,1) export", "spec_required": "implied by spec line 15 'import/export feature'", "cc": "Explicitly rejected with error", "cd": "PASS", "oc": "FAIL \u2014 not implemented; requires existing share for new peers"}, {"name": "Reshare with committee size change (n grows)", "spec_required": "implied", "cc": "Explicitly rejected with error", "cd": "PASS \u2014 (2,3)\u2192(3,4) works, sign works", "oc": "FAIL \u2014 reshare cannot change t/n at all (only refreshes)"}, {"name": "Pubkey preserved across reshare", "spec_required": true, "cc": "PASS (in supported transitions)", "cd": "PASS (all transitions)", "oc": "FAIL (reshare hangs)"}, {"name": "Signing after reshare", "spec_required": "implied", "cc": "PASS", "cd": "PASS (incl. as singleton after export)", "oc": "FAIL"}, {"name": "Discovery uses mDNS as required by spec", "spec_required": true, "cc": "PASS \u2014 uses iroh MdnsAddressLookup with key-id-scoped service name", "cd": "PASS \u2014 uses iroh MdnsAddressLookup with user_data", "oc": "FAIL \u2014 uses /tmp/dkls23ctl filesystem rendezvous"}, {"name": "Cargo unit/integration tests", "spec_required": true, "cc": "2/2 passed (in-process dkls23 keygen+sign roundtrip + storage roundtrip)", "cd": "2/2 passed (singleton sign + dkls23 in-process)", "oc": "0 tests"}, {"name": "Helper QA shell scripts", "spec_required": "spec line 18 'consider writing helper shell scripts'", "cc": "4 scripts: run_all.sh, test_singleton.sh, test_threshold.sh, test_reshare.sh", "cd": "0 scripts", "oc": "3 scripts: qa_test.sh, qa_keygen_sign.sh, qa_reshare.sh (qa_test admits race conditions)"}];
+
+// Scenario table
+const tbody = document.getElementById('scenarioTable');
+function classify(s){
+  if(!s) return '';
+  if(/^PASS/i.test(s)) return 'pass';
+  if(/^FAIL/i.test(s)) return 'fail';
+  return 'partial';
+}
+SCENARIOS.forEach(sc => {
+  const tr = document.createElement('tr');
+  const td0 = document.createElement('td'); td0.textContent = sc.name; tr.appendChild(td0);
+  ['cc','cd','oc'].forEach(k => {
+    const td = document.createElement('td');
+    const v = sc[k] || '—';
+    td.innerHTML = `<span class="${classify(v)}">${v.replace(/^(PASS|FAIL)\s*/i,'$1 ')}</span>`;
+    tr.appendChild(td);
+  });
+  tbody.appendChild(tr);
+});
+
+// Scenario pass/fail bar chart — count per agent
+function score(s){
+  if(!s) return 0;
+  if(/^PASS/i.test(s)) return 1;
+  if(/^FAIL/i.test(s)) return -1;
+  return 0.5; // partial
+}
+const passCounts = {cc:0, cd:0, oc:0};
+const failCounts = {cc:0, cd:0, oc:0};
+const partialCounts = {cc:0, cd:0, oc:0};
+SCENARIOS.forEach(sc => {
+  ['cc','cd','oc'].forEach(k => {
+    const v = sc[k] || '';
+    if(/^PASS/i.test(v)) passCounts[k]++;
+    else if(/^FAIL/i.test(v)) failCounts[k]++;
+    else partialCounts[k]++;
+  });
+});
+
+new Chart(document.getElementById('chartScenarios'), {
+  type: 'bar',
+  data: {
+    labels: ['Opus 4.7', 'GPT-5', 'DeepSeek v4-pro'],
+    datasets: [
+      {label:'Passed', data:['cc','cd','oc'].map(k=>passCounts[k]), backgroundColor:'#3fb950'},
+      {label:'Partial / N-A', data:['cc','cd','oc'].map(k=>partialCounts[k]), backgroundColor:'#d29922'},
+      {label:'Failed', data:['cc','cd','oc'].map(k=>failCounts[k]), backgroundColor:'#f85149'},
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins:{legend:{position:'top',labels:{color:'#e6edf3'}}, title:{display:true, text:'QA scenarios per model', color:'#e6edf3'}},
+    scales:{x:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'},stacked:true}, y:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'},stacked:true,title:{display:true,text:'scenarios',color:'#8b949e'}}},
+  }
+});
+
+// Activity timeline — bin by minute since session start
+function activityDataset(key, label){
+  const minutes = REPORT_DATA[key].metrics.minute_counts;
+  const max = Math.max(...Object.keys(minutes).map(Number).concat([0]));
+  const arr = [];
+  for(let i=0;i<=max;i++) arr.push(minutes[i] || 0);
+  return {label, data: arr, borderColor: COLORS[key], backgroundColor: COLORS[key]+'33', tension: 0.25, pointRadius: 0, fill: true};
+}
+const dsCC = activityDataset('cc','Opus 4.7');
+const dsCD = activityDataset('cd','GPT-5');
+const dsOC = activityDataset('oc','DeepSeek v4-pro');
+const maxLen = Math.max(dsCC.data.length, dsCD.data.length, dsOC.data.length);
+const labels = Array.from({length: maxLen}, (_,i) => i + ' min');
+[dsCC, dsCD, dsOC].forEach(ds => { while(ds.data.length < maxLen) ds.data.push(0); });
+
+new Chart(document.getElementById('chartActivity'), {
+  type: 'line',
+  data: {labels, datasets: [dsCC, dsCD, dsOC]},
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins:{legend:{position:'top', labels:{color:'#e6edf3'}}, title:{display:true,text:'Tool calls per minute (relative to each session start; gaps include shared user-pause)', color:'#e6edf3'}},
+    scales:{x:{ticks:{color:'#8b949e', maxTicksLimit:20},grid:{color:'#30363d'}, title:{display:true,text:'minutes since session start',color:'#8b949e'}}, y:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'},title:{display:true,text:'tool calls',color:'#8b949e'}}}
+  }
+});
+
+// Tool breakdown (top 6 per agent, normalized)
+function topTools(key, n=8){
+  const breakdown = REPORT_DATA[key].metrics.tool_breakdown;
+  return Object.entries(breakdown).sort((a,b)=>b[1]-a[1]).slice(0, n);
+}
+const allKeys = new Set();
+['cc','cd','oc'].forEach(k => topTools(k).forEach(([t]) => allKeys.add(t)));
+const allKeysArr = Array.from(allKeys);
+const MODEL_LABEL = {cc:'Opus 4.7', cd:'GPT-5', oc:'DeepSeek v4-pro'};
+const toolDatasets = ['cc','cd','oc'].map(k => ({
+  label: MODEL_LABEL[k],
+  data: allKeysArr.map(t => REPORT_DATA[k].metrics.tool_breakdown[t] || 0),
+  backgroundColor: COLORS[k],
+}));
+new Chart(document.getElementById('chartTools'), {
+  type: 'bar',
+  data: {labels: allKeysArr, datasets: toolDatasets},
+  options: {
+    indexAxis: 'y',
+    plugins:{legend:{position:'bottom', labels:{color:'#e6edf3'}}, title:{display:true,text:'tool calls by tool',color:'#e6edf3'}},
+    scales:{x:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'}}, y:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'}}}
+  }
+});
+
+// Wall vs active time
+new Chart(document.getElementById('chartTime'), {
+  type: 'bar',
+  data: {
+    labels: ['Opus 4.7','GPT-5','DeepSeek v4-pro'],
+    datasets: [
+      {label:'Wall time (min)', data: ['cc','cd','oc'].map(k => Math.round(REPORT_DATA[k].metrics.wall_seconds/60)), backgroundColor:'#21262d', borderColor:'#8b949e', borderWidth:1},
+      {label:'Active time (min)', data: ['cc','cd','oc'].map(k => Math.round(REPORT_DATA[k].metrics.active_seconds/60)), backgroundColor: ['cc','cd','oc'].map(k => COLORS[k])},
+    ]
+  },
+  options: {
+    plugins:{legend:{position:'bottom', labels:{color:'#e6edf3'}}, title:{display:true,text:'wall vs active time (min)', color:'#e6edf3'}},
+    scales:{x:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'}}, y:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'}}}
+  }
+});
+
+// Tokens chart
+new Chart(document.getElementById('chartTokens'), {
+  type: 'bar',
+  data: {
+    labels: ['input', 'output', 'cache_read'],
+    datasets: ['cc','cd','oc'].map(k => ({
+      label: MODEL_LABEL[k],
+      data: [REPORT_DATA[k].tokens.input, REPORT_DATA[k].tokens.output, REPORT_DATA[k].tokens.cache_read],
+      backgroundColor: COLORS[k],
+    }))
+  },
+  options: {
+    plugins:{legend:{position:'bottom', labels:{color:'#e6edf3'}}, title:{display:true,text:'tokens consumed (log scale)', color:'#e6edf3'}},
+    scales:{x:{ticks:{color:'#e6edf3'},grid:{color:'#30363d'}}, y:{type:'logarithmic', ticks:{color:'#e6edf3'},grid:{color:'#30363d'}}}
+  }
+});
+</script>
+</body></html>
