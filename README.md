@@ -1,6 +1,6 @@
 # Opus 4.7 vs GPT-5 vs DeepSeek v4-pro — building dkls23ctl
 
-> **Live report:** https://nikicat.github.io/claudecode-vs-codex-vs-opencode-dkls23/
+> **Live report:** https://nikicat.github.io/opus-vs-gpt-vs-deepseek-dkls23/
 
 A side-by-side evaluation of three frontier coding models, each running in its
 own agent harness, given the same brief — build a Rust CLI (`dkls23ctl`) for
@@ -19,8 +19,14 @@ runs (matching the directory layout of the original test). The HTML report
 surfaces model names; the JSON files keep the short keys.
 
 The brief is reproduced in [`tz.txt`](tz.txt) (verbatim user prompt). The three
-implementations themselves (`cc/`, `cd/`, `oc/` source trees) are **not**
-included in this repo — only the analysis artifacts.
+implementations themselves live in separate repositories — this repo holds only
+the analysis artifacts:
+
+| Short key | Model / harness | Source repo |
+|-----------|-----------------|-------------|
+| `cc` | Opus 4.7 / Claude Code | https://github.com/nikicat/dkls23ctl-opus |
+| `cd` | GPT-5 / Codex | https://github.com/nikicat/dkls23ctl-gpt |
+| `oc` | DeepSeek V4-Pro / OpenCode | https://github.com/nikicat/dkls23ctl-deepseek |
 
 ## Index of files
 
